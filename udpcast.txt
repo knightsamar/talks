@@ -1,0 +1,56 @@
+udpcast - setting up a lab en-masse.
+
+* Problem 
+	To setup a whole lab of N machines in one go.
+		- To install the OS(es) and multiple application software.
+	All the machines have same hardware configuration (HDD,CPU, Motherboard, etc).
+	
+* Solution
+	udpcast over PXE
+	Requirements:
+		1. A template machine = one single machine configured with whatever you want.
+		2. A network with all the lab machines connected to it.
+		3. A seperate machine which will 'host' udpcast.
+		4. All lab machines with network booting capability.
+
+* A bit about udpcast:
+	UDPcast is a file transfer tool that can send data simultaneously to many destinations on a LAN.
+	Released under GNU GPL 2.0, parts under BSD-like license.
+	
+* Steps
+	A. Setup PXE
+		1.Setup TFTP Server.
+		2.Setup DHCP.
+	B. Setup udpcast over PXE.
+		1.Install udpcast packages.
+		2.Build up your initrd from udpcast.linux.lu
+		3.Pick up a linux kernel.
+		4.Make initrd and kernel available through the TFTP server.
+		5.Write a default configuration file and place it inside the directory (ref: syslinux.org)
+	C. Use it!
+		1.Boot up all the lab machines over network in recieve mode.
+		2.Boot up the template machine over network in sender mode.
+		3.Start!
+* Tips
+	A. Speed.
+		1.Zerofill your hard disk.
+		2.Tweak your switch.
+		 i)Enable IGMP snooping.
+		ii)Disable Broadcast Storm Control.
+		
+* Some problems you might face:
+	A. Transfer stops in midst:
+		1. Might happen due to bad sectors on the template machine.
+		2. Switch problem.
+
+* References
+	A. udpcast.linux.lu
+	B. syslinux.org
+ 
+* About me
+	Software Engineer in Mostfit(http://mostfit.in)
+	A GNUnify volunteer using udpcast for all lab setups over 6 years :)
+	A SDRCLabs member(http://projects.sdrclabs.in)
+	github.com/knightsamar
+    	mail me at knightsamar at gmail dot com
+

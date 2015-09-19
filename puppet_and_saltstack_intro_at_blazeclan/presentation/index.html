@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+		<title>Managing your machines with Puppet and SaltStack</title>
+
+		<meta name="description" content="A talk at BlazeClan Inc. Pune">
+		<meta name="author" content="Samarendra M Hedaoo">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/black.css" id="theme">
+
+		<!-- Code syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+				<section>
+					<h2>Disclaimer</h2>
+                    <ul>
+                        <li>We will skip the installation, configuration of Puppet and SaltStack and some advanced (functions + implementations) and stick to getting a taste of what things are Puppet and SaltStack capable of doing. </li>
+                        <li>We will also skip some other things which I will skip mentioning until the end.</li>
+                        <li>I haven't worked on these technologies since an year and a half :) </li>
+                    </ul>
+                    <aside class='notes'>
+                        <b>Press ? for help on keyboard shortcuts</b>
+                    </aside>
+				</section>
+
+                <section>
+                    <h1>Managing your <br/><strike>servers</strike><br/> <i>"all kind of machines"</i> <br/>with<br/> Puppet & SaltStack</h1>
+					<p>
+						<small>By <a href="http://fortyplustwo.net">Samarendra M Hedaoo</a></small>
+					</p>
+				</section>
+
+                <section> 
+                    <h3>Demo Setup</h3>
+<pre>
+                    [minion1 vm] -- Ubuntu 14.04
+                     / 
+                    /
+                   / 
+[ master vm ] +-+-/
+ Ubuntu 14.04 +-+-\
+                   \ 
+                    \ 
+                     \
+                    [minion2 vm] -- Fedora 21
+
+</pre>
+                </section>
+				
+                <section>
+						<h2>Introduction to the Problem 1</h2>
+                        <p>Ensure that <i>n</i> number of machines have X<sup>*</sup> installed.</p>
+                        <br/><br/>
+                        <small>* no pun intended</small>
+						<br>
+				</section>
+
+                <!-- nested sections 1 -->
+                <section>
+                    <section>
+                            <h2>Possible solutions</h2>
+                            <ul>
+                               <li class='fragment'>Copy whole hard disks/udpcast over PXE/Norton Ghost/disk cloning solutions</li>
+                                <li class='fragment'>SSH/PowerShell(?) in a loop</li>
+                                <li class='fragment'>Manually install on all machines</li> 
+                            <span class='fragment'>
+                                <li>Puppet ???</li>
+                                <li>SaltStack ???</li>
+                                <li>Any other solutions ??? </li>
+                            </span>
+                                          
+                            </ul>
+    				</section>
+    				<section>
+						    <h2>ssh in a loop</h3>
+						    <pre>
+                            <code data-trim contenteditable>
+for machine in $(cat machine_list)
+do
+    echo "Installing X on $machine..."
+    ssh $machine the_great_package_manager install X
+    echo "Done installing X on $machine"
+    echo "Now moving to next!"
+done
+                            </code>
+                            </pre>
+                    <aside class='notes'>
+                        <ul>
+                            <li>prepare a list of machines to work on
+                            <li>SSH to each machine
+                            <li>run command
+                            <li>record output
+                            <li>go to next
+                    </aside>
+                    </section>
+
+                    <section>
+                        <aside class="notes">
+                            Scripts for installing, removing, starting, restarting, stopping services, changing file permissions and so on...
+                        </aside>
+                        <h3>Scaling ssh-in-a-loop </h3>
+                        <ul>
+                            <li class='fragment'>Handle and log errors while installing</li>
+                            <li class='fragment'>Add support for yum, apt-get, MSI and so on...</li>
+                            <li class='fragment'>Handle non-SSH-supporting OS</li>
+                            <li class='fragment'>Manage ssh-keys, non-standard ports and all your "security" workarounds</li>
+                            <li class='fragment'>Add support for different tasks as they are realized by your manager/client</li>
+                        </ul>
+                   </section>
+               </section> <!-- embedded section 1 ends -->
+                        
+               <section> <!-- embedded section 2 starts -->
+    				<section>
+                        <h2> Puppet and how it works </h2>
+                        <img src='imgs/how_puppet_works.png' width='74%' height='59%'/>
+                        <small>From <i>The Architecture of Open Source Applications</i> book</small>
+                        <aside class='notes'>
+                        There are other ways of using Puppet too such as standalone puppet agents where the apply definitions are available. This ensures that even if the PuppetMaster fails, the machines know what state to maintaine. A pretty good measure to avoid Single Point of Failure.
+                        </aside>
+    				</section>
+                    
+                    <section>
+                        <h2> How to use Puppet ? </h2>
+                        <ul>
+                            <li> Write resource definitions in Puppet's Domain-Specific-Language </li>
+                            <li> Put your resources into node-specific manifests </li>
+                            <li> Validate the manifests </li>
+                            <li> Let Puppet worry about how to get things done. </li>
+                        </ul>
+                        <aside class='notes'>
+                            <p>You write resource definitions for each machine and the puppet agent running on those machines fetch definitions for them from the PuppetMaster and apply them. <br/>
+
+                            Resource definitions are written in Puppet's DSL which is pretty much English and declarative. <br/>
+                            You don't have to worry about how things work just use them.
+                            </p>
+                        </aside>
+                    </section>
+                   
+                    <section>
+                        <pre class><code data-trim contenteditable>
+#inside your modules
+class hamareResources {
+
+    resource_type_x { $title :
+            attribute => $value
+    }
+
+    resource_type_y { $title :
+            attribute => $value
+    }
+    .
+    .
+    .
+}
+
+#and then in the node manifest
+node "machine.example.net" {
+        include hamareResources
+ 
+    }
+        </code></pre>
+ 
+                    </section>
+                </section> <!-- embedded section 2 ends -->
+ 
+                <section> <!-- embedded section 3 starts -->
+                    <section>
+                    <h2>Managing software resources</h2>
+<pre><code data-trim contenteditable>
+package { "software_name" :
+            ensure => present,
+        }
+
+</code></pre>
+                    <p class='fragment'>A software is managed in the form of a package. Using the 'package' resource, we can manage a software's state -- <i>present, absent, specific version, latest</i></p>
+                    
+                    <aside class='notes'>
+                                You may use the words "present", "installed", "uninstalled", "absent" interchangeably.
+
+                                You can also specify a specific version string or the keyword latest which tells the equivalent to your package manager. A package manager solution can be forced using "provider" attribute. Otherwise the default package manager on your system is used. 
+                    </aside>   
+                    </section>
+                    
+                    <section>
+                        <h3> What if the software isn't in .rpm or .deb? </h3>
+                        <h4>Package it!</h4>
+                    </section>
+                </section> <!-- embedded section 3 ends -->
+
+        <section> <!-- embedded section 4 starts -->
+             <section> 
+             <h2>Managing service resources</h2>
+             <p>A service is any software managed by the systemctl, SysV or other such utility which has interfaces available for start/stop/reload/restart functionalities.</p>
+
+<pre><code data-trim contenteditable>
+service { "service_name" :
+            ensure  => running,
+            enabled => true,
+        }
+
+</code></pre>
+<br/><br/><br/><br/><br/><br/><br/>   
+                </section>
+                <section>
+                    <h2>Managing service resources</h2>
+<p>Service name may differ based on OS version/flavour. <br/>
+
+So you can use:</p>
+
+<pre><code data-trim contenteditable>
+     service {
+               "cron" :
+                    ensure  => running ;
+               "crond" :
+                    ensure  => running,
+     }
+</code></pre>
+<pre class='fragment'>
+<b>OR</b>
+<code data-trim contenteditable>
+
+    case $operatingsystem {
+        ubuntu { $service_name = 'cron' }
+        fedora { $service_name = 'crond' }
+    }
+    
+    service { $service_name :
+                ensure => running;
+            }
+
+</code></pre>
+                </section>
+            </section> <!-- embedded section 4 ends -->
+            <section> <!-- embedded section 5 starts -->
+                <section>
+                    <h2> Managing file resources </h2>
+            <p>A file is a file is a file. </p>
+<pre><code>
+file { "/absolute/path/to/file_on_the_machine" :
+        ensure  => present, #directory/file/absent/present/link
+        mode    => '0700',  #permissions in numeric mode 
+        owner   => user,    #owner name
+        group   => group,   #group name 
+        content => "INLINE STRING CONTENT" or template(),
+        source  => "puppet://link/to/file/relative/to/the/module" #This file should exist inside the modules/module_name/files directory on the Puppetmaster
+    }
+</code></pre>
+<p class='fragment'> You can read <a href='http://docs.puppetlabs.com/puppet/4.2/reference/lang_template.html'>more about template function.</a> <br/> You can choose to make a backup of the file if it is being replaced using the <i>backup</i> attribute. The backup can be either on the agent OR on the Puppet Master in a <i>filebucket</i> </p>
+
+        <aside class='notes'>
+            You can use either of the 'source' or 'content' attributes.
+        </aside>    
+        </section>
+
+        <section>
+        <h2> Managing file resources </h2>
+        <p>A directory is also a file!</p>
+
+<pre><code>
+file { "/absolute/path/to/dir_on_the_machine" :
+        ensure  => present, #directory/file/absent/present/link
+        mode    => '0700',  #permissions in numeric mode 
+        owner   => user,    #owner name
+        group   => group,   #group name 
+        recurse => true,    
+        source  => "puppet://link/to/dir/relative/to/the/module" #This file should exist inside the modules/module_name/files directory on the Puppetmaster
+    }
+</code></pre>
+<p class='fragment'> You can choose to manage a directory <i>recurs</i>ively (<i>sub-directories + inside files will be also managed</i>) and you can choose what happens to files which are on the machine but not present on the Puppet Master using the <i>purge</i> attribute. </p>
+        </section>
+</section>
+ 
+        <section>
+                <h2> Running a command on your machines </h2>
+<pre><code>
+exec { 'binary --with --args'
+        path => [ "/paths",
+                  "/to",
+                  "/search",
+                  "/the",
+                  "/binary",
+                ]
+     }
+</code></pre>
+        <aside class='notes'>
+            <p>Try to think of this as a command which you want to run <i>always</i></p>
+        </aside>
+        </section>
+
+            <section>
+            <h2> Managing more things with Puppet </h2>
+            
+            <ul>
+                <li>cron jobs</li>
+                <li>users</li>
+                <li>groups</li>
+                <li>ssh keys</li>
+                <li><a href='https://docs.puppetlabs.com/references/stable/type.html'>more</a>
+                <li class='fragment'>...and many more things thanks to the <a href='http://forge.puppetlabs.com/'>Puppet Forge!</a></li>
+                <li class='fragment'>...and also Windows machines!</li>
+            </ul>
+            </section>
+     
+            <section>
+            <h2> Managing things with Puppet -- in a better way</h2>
+            
+            <ul>
+                <li>Use if-else, switch-case, unless, selectors and custom variables</li>
+                <li>Combine group of related resources in classes</li>
+                <li>Combine related classes in modules</li>
+                <li>Use facts from facter</li>
+                <li>Use <a href='https://docs.puppetlabs.com/puppet/latest/reference/lang_relationships.html'>subscribe and notify relationships</a> between resources</li>
+                <li>Use <i>before</i> and <i>after</i> ordering between resources (if you absolutely have to)</li>
+            </ul>
+            <aside class='notes'>
+                <i>Ideally your resources should be mutually exclusive and be apply-able in any order -- unless they are dependent on each other.</i>
+            </aside>
+           </section>
+
+           <section>
+                    <h2>Introduction to the Problem 2</h2>
+                    <br/>
+                    <p>Check the date and time on all machines</p>
+		    </section>
+
+            <!-- nested sections 1 -->
+            <section>
+                <section>
+                    <h2>Possible solutions</h2>
+                        <ul>
+                        <li class='fragment'>SSH/PowerShell(?) in a loop</li>
+                        <li class='fragment'>Puppet ???</li>
+                        <li class='fragment'>SaltStack ???</li>
+                        </ul>
+    			</section>
+    			<section>
+                        <h2>Using Puppet to solve Problem2</h3>
+                        <pre>
+                        <code data-trim contenteditable>
+exec { 'date' :
+        path => ['/usr/bin',
+                 '/bin',
+                ]
+     }
+                       </code>
+                        </pre>
+                    <ul>
+                        <li class='fragment'>Will repeat again, and again and again until you remove it from the manifest.</li>
+                        <li class='fragment'>Not easy to figure out whether the command has run on a machine or not.</li>
+                        <li class='fragment'>Not easy to store and parse the output</li>
+                    </ul>
+                    </section>
+                </section> <!-- embedded section 1 ends -->
+                <section> <!-- embedded section 2 starts -->
+    				<section>
+                        <h2> SaltStack and how it works </h2>
+                        <img src='imgs/how_saltstack_works.png' width='47%' height='54%'/><br/>
+                        <small>From <i>SaltStack docs</i></small>
+                        <aside class='notes'><b>An open source tool for one-off tasks.</b>
+                        </aside>
+    				</section>
+                    
+                    <section>
+                        <h2> How to use SaltStack? </h2>
+                        <ul>
+                            <li> Setup Salt Master and SaltStack minions on your machines that you wish to control </li>
+                            <li> Introduce them to each other </li>
+                            <li> Run commands from the Salt Master! </li>
+                    </section>
+                </section>
+
+                <section>
+                    <h2> Checking date and time on all machines </h2>
+                    <p> Very simple task but difficult to do when you have numerous machines with heterogeneous configuration </p>
+<pre class='fragment'><code>
+salt {target_machines} cmd.run "date"
+</code></pre>
+<aside class='notes'>
+sudo salt '*' cmd.run 'date'
+</aside>
+                </section>
+
+                <section>
+                    <h2> Checking whether a string exists in a file on machines </h2>
+<pre class='fragment'><code>
+salt {target_machines} file.contains {filename} "string"
+</code></pre>
+
+<aside class='notes'>
+sudo salt '*' file.contains /etc/hosts 'localhost.localdomain'
+</aside>
+                </section>
+
+                <section>
+                    <h2> List network interfaces </h2>
+<pre class='fragment'><code>
+salt {target_machines} network.interfaces
+</code></pre>
+
+<aside class='notes'>
+sudo salt '*' network.interfaces
+</aside>
+                </section>
+
+                <section>
+                    <h2> Pull a specific file from all machines <br/>to a central location </h2>
+
+<pre class='fragment'><code>
+salt {target_machines} cp.push {absolute_path_to_file}
+</code></pre>
+
+<p class='fragment'>Will copy files to the <i>cache_dir</i> on your master.</p>
+
+<aside class='notes'>
+sudo salt '*' cp.push /etc/mtab
+
+/var/cache/salt/master/minions/minion2.example.net/files
+
+Will require *recv_file* to be true in master configuration.
+</aside>
+                </section>
+
+            <section>
+            <h2> Doing more things with SaltStack</h2>
+                        
+            <ul>
+                <li class='fragment'>Use <a href='https://docs.saltstack.com/en/latest/topics/targeting/globbing.html#globbing'>globs</a> and <a href='https://docs.saltstack.com/en/latest/topics/targeting/grains.html'>grains</a> on the commandline</li>
+                <li class='fragment'>Use pillars</li>
+                <li class='fragment'>Use the <a href='https://docs.saltstack.com/en/latest/topics/reactor/index.html'>reactor system</a></li>
+                <li class='fragment'>Use the Python API</li>
+                <li class='fragment'>Use the REST/WebSockets/XMPP api using the salt-api daemon</li>
+
+           </ul>
+           <aside class='notes'>
+               <ol>
+                   <li>Target minions based on grains --- salt -G 'os:CentOS' test.ping</li>
+                   <li>List grains on Minions --- salt '*' grains.ls</li>
+                   <li>Reactor system -- Hook infrastructure events with actions</li>
+                   <li>Python API -- import salt</li>
+                   <li>A good example of XMPP API is making a chat bot who keeps you informing about what is happening.</li>
+               
+                   <li>sudo salt * sys.doc</li>
+                </ol>
+            </aside>
+           </section>
+ 
+           <section>
+               <h2> The skipped things <br/>you should know</h2>
+            
+            <ul>
+                <li class='fragment'>mcollective in Puppet.</li>
+
+                <li class='fragment'>salt for configuration management.</li>
+
+                <li class='fragment'>Language! Ruby and Python differ wildly not only in syntax but also in philosophies -- and so do Puppet and SaltStack!</li>
+            </ul>
+
+            <aside class='notes'>
+Puppet started out as a configuration management software and then included mcollective.
+
+Salt started out as a orchestration solution and then added millions of functionality. Salt is more like a ecosystem ("Salt-STACK") now than just software. It can even execute puppet and use puppet facts!
+
+Salt is very good and lightweight when you have old servers lying around which you want to maintain. Puppet is very good for recent servers where adding ruby support isn't a pain.
+           </aside>
+          </section>
+
+           
+           <section>
+                <h2> Use cases </h2> 
+                <ul>
+                    <li>
+                    <span class='fragment'>Install emacs on all machines.</span>
+                    <span class='fragment'>-- <i>Both Puppet and Salt can do it.</i></span>
+                    </li>
+
+                    <li>
+                    <span class='fragment'>Make sure that <i>.ssh</i> directory exists for each user.</span>
+                    <span class='fragment'>-- <i>Puppet is the best</i></span>
+                    </li>
+
+                    <li>
+                    <span class='fragment'>Restart X server on all machines. </span>
+                    <span class='fragment'>-- <i>Salt is the best.</i></span>
+                    </li>
+
+                    <li>
+                    <span class='fragment'>Reload X server on all machines after putting a change in the configuration file. </span>
+                    <span class='fragment'>-- <i>Puppet is the best</i></span>
+                    </li>
+
+                    <li>
+                    <span class='fragment'>Add a new virtualhost to Apache configuration. </span>
+                    <span class='fragment'>-- <i>Puppet is the best. Checkout <a href='https://forge.Puppetlabs.com/puppetlabs/apache'>Apache module by PuppetLabs</a></i></span>
+                    </li>
+                </ul>
+            </section>
+            <section>
+                <h2> Use cases - 2 </h2> 
+                <ul>
+                    <li>
+                    <span class='fragment'>Check if fail2ban is installed. </span>
+                    <span class='fragment'>-- <i>Salt will check. Puppet will check and install (ENSURE) </i></span>
+                    </li>
+ 
+                    <li>
+                    <span class='fragment'>Copy a file to all machines.</span>
+                    <span class='fragment'>-- <i>Puppet will copy and ensure it remains so. Salt will just copy and forget.</i>
+                    </span>
+
+                    <li>
+                    <span class='fragment'>Check the contents of a file and on the basis of it perform P or Q action.</span>
+                    <span class='fragment'>-- <i>can be done using facter and if-else blocks in Puppet or simply Salt.</i></span>
+                    </li>
+               </ul>
+           </section>
+            
+            <section>
+                <h2> About me </h2>
+                <p>Just another Linux user who:</p>
+                <ul>
+                    <li>...currently works at the <a href='http://gcoe-iitb.in'>GPU Centre of Excellence, IIT Bombay</a></li>
+                    <li>...did a startup with Sachin here with mixed results.</li>
+                    <li>...picked up Puppet and SaltStack while working as a DevOps in <a href='http://socialtwist.com'>SocialTwist</a> and <a href='http://intellecap.net'>Intellecap</a></li>
+                    <li>...and attempted to create a fork of vim koans called <a href='http://github.com/knightsamar/puppet_koans'>Puppet koans</a></li>
+                    <li>...has his website at <a href='http://fortyplustwo.net'>fortyplustwo.net</a> <br/>
+                </ul>
+                <br/><br/>
+                <small>This presentation was made using <a href='https://github.com/hakimel/reveal.js'>reveal.js</a></small>
+            </section>
+            </div>
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+
+			// Full list of configuration options available at:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				transition: 'fade', // none/fade/slide/convex/concave/zoom
+                transitionSpeed: 'fast',
+
+				// Optional reveal.js plugins
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, condition: function() { return !!document.querySelector( 'pre code' ); }, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true },
+					{ src: 'plugin/notes/notes.js', async: true }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
